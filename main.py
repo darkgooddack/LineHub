@@ -1,5 +1,25 @@
 import flet as ft
+import pymysql
+from config import host, user, password, db_name
 
+def connect():
+    """ Function to connect to MySQL """
+    try:
+        connection = pymysql.connect(
+            host=host,
+            port=3306,
+            user=user,
+            password=password,
+            database=db_name,
+            cursorclass=pymysql.cursors.DictCursor
+        )
+        print("Successfully connected...")
+        return connection
+
+    except pymysql.Error as ex:
+        print("Connection refused...")
+        print(ex)
+        return None
 
 # create the landing class ...
 class Landing(ft.Container):
@@ -46,7 +66,7 @@ class FormData:
     # METHOD: update on click tags ...
     @staticmethod
     def update_tags(tag: list[str], instance: object):
-        new_tag = [tag[0], ft.colors.with_opacity(0.61, "green")]
+        new_tag = [tag[0], ft.colors.with_opacity(0.61, "blue")]
 
         FormData.tags = [
             new_tag if item[0] == new_tag[0] else [item[0], "white10"]
@@ -73,11 +93,12 @@ class Form(ft.Container):
         self.commit = ft.TextButton(
             "Commit Line!",
             height=45,
+            on_click=self.authenticate_user
         )
 
         self.content = ft.Column(
             [
-                ft.Text("Say Something"),
+                ft.Text("What is your name?"),
                 self.title,
                 ft.Divider(height=10, color="transparent"),
                 #
@@ -85,13 +106,52 @@ class Form(ft.Container):
                 self.tags,
                 ft.Divider(height=10, color="transparent"),
                 #
-                ft.Text("Add Media"),
+                ft.Text("Enter your username and password"),
                 ft.Row([self.name, self.link]),
                 ft.Divider(height=10, color="transparent"),
                 #
                 ft.Row([self.commit], alignment="center"),
             ]
         )
+
+    def authenticate_user(self, _):
+        """ Authenticate user """
+        username = self.name.value  # Assuming name field is used for username
+        password = self.link.value  # Assuming link field is used for password
+
+        if self.authenticate(username, password):
+            print("Authentication successful")
+            # Proceed with your application logic after successful authentication
+        else:
+            print("Authentication failed")
+            # Handle authentication failure scenario
+
+    def authenticate(self, username, password):
+        """ Authenticate user against database """
+        conn = connect()
+        if conn:
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute("SELECT * FROM test WHERE username = %s AND password = %s", (username, password))
+                    row = cursor.fetchone()
+
+                    if row:
+                        print("Login successful")
+                        return True
+                    else:
+                        print("Incorrect username or password")
+                        return False
+
+            except pymysql.Error as ex:
+                print("Error while authenticating user:", ex)
+                return False
+
+            finally:
+                conn.close()
+
+        else:
+            print("Connection to database failed")
+            return False
 
     # method: render tags ...
     def render_tags(self):
